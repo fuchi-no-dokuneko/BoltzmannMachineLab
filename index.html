@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Boltzmann Machine Lab</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header><div><span class="mark">BM</span><strong>Boltzmann Machine Lab</strong></div><span class="local">Offline simulation</span></header>
+  <main>
+    <section class="lab-head"><div><h1>Energy-based learning, visible</h1><p>Train a full Boltzmann machine or an RBM and inspect stochastic states, weights, energy, and reconstruction error.</p></div><div class="legend"><span><i class="positive"></i> positive weight</span><span><i class="negative"></i> negative weight</span></div></section>
+    <section class="control-strip">
+      <label>Model<select id="model"><option value="rbm">Restricted BM (CD-k)</option><option value="bm">Full BM (Gibbs phases)</option></select></label>
+      <label>Visible<input id="visibleCount" type="number" min="3" max="12" value="6"></label>
+      <label>Hidden<input id="hiddenCount" type="number" min="2" max="10" value="4"></label>
+      <label>Learning rate<input id="learningRate" type="number" min="0.0001" max="1" step="0.005" value="0.05"></label>
+      <label>Temperature<input id="temperature" type="number" min="0.1" max="5" step="0.1" value="1"></label>
+      <label>CD / Gibbs steps<input id="gibbsSteps" type="number" min="1" max="50" value="1"></label>
+      <label>Steps / second<input id="speed" type="range" min="1" max="30" value="8"><output id="speedValue">8</output></label>
+    </section>
+    <section class="runtime">
+      <div class="actions"><button class="primary" id="start" type="button">Start</button><button id="pause" type="button" disabled>Pause</button><button id="step" type="button">Single step</button><button id="reset" type="button">Reset network</button></div>
+      <div id="status" class="status">Ready. Adjust the dataset or start training.</div>
+      <div class="metrics"><span>Epoch <strong id="epoch">0</strong></span><span>Error <strong id="error">0.0000</strong></span><span>Energy <strong id="energy">0.0000</strong></span><span>Weight RMS <strong id="weightRms">0.0000</strong></span></div>
+    </section>
+    <section class="workbench">
+      <section class="network-panel">
+        <div class="panel-title"><h2>Network state</h2><span id="phase">idle</span></div>
+        <canvas id="network" width="1000" height="620" aria-label="Boltzmann machine network"></canvas>
+      </section>
+      <aside class="dataset-panel">
+        <div class="panel-title"><h2>Training patterns</h2><button id="randomPattern" type="button">Randomize</button></div>
+        <p>Click bits to edit. Uncheck a row to exclude it.</p>
+        <div id="patterns" class="patterns"></div>
+      </aside>
+    </section>
+    <section class="code-section">
+      <div class="panel-title"><div><h2>Learning functions</h2><p>These functions execute in this tab. Invalid code is rejected without replacing the active functions.</p></div><div><button id="applyCode" type="button" class="primary">Apply code</button><button id="resetCode" type="button">Restore original</button></div></div>
+      <div class="code-grid">
+        <label>Activation probability<textarea id="activationCode" spellcheck="false"></textarea></label>
+        <label>Weight update<textarea id="updateCode" spellcheck="false"></textarea></label>
+      </div>
+      <pre id="codeStatus">Original functions active.</pre>
+    </section>
+    <section class="guide">
+      <h2>Reading the experiment</h2>
+      <div><p><strong>RBM:</strong> positive associations come from data and hidden probabilities; negative associations come from a CD-k reconstruction.</p><p><strong>Full BM:</strong> the positive phase clamps visible data while the negative phase lets every unit run freely. More Gibbs steps generally reduce sampling bias but cost more time.</p><p><strong>Temperature:</strong> lower values make states more deterministic. Edge width shows magnitude; green and red show weight sign.</p></div>
+      <p class="sources">Model behavior follows Ackley, Hinton, and Sejnowski (1985), with RBM contrastive-divergence controls based on Hinton's practical guide. Source links are in the README.</p>
+    </section>
+  </main>
+  <footer>All training and custom code execution remain in this browser tab.</footer>
+  <script src="app.js"></script>
+</body>
+</html>
