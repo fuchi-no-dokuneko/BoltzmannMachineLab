@@ -35,6 +35,16 @@ document.getElementById("app").addEventListener("load", () => {
     inference.state.input = Array(12).fill(0);
     const sampledResult = inference.runInference();
     check("large full BM uses normalized Gibbs estimate", sampledResult.distribution.method.includes("Gibbs") && Math.abs(sampledResult.probabilitySum - 1) < 1e-10);
+    frame.contentDocument.getElementById("model").value = "rbm";
+    frame.contentDocument.getElementById("visibleCount").value = "6";
+    frame.contentDocument.getElementById("hiddenCount").value = "4";
+    api.resetNetwork();
+    inference.state.input = Array(6).fill(0);
+    frame.contentDocument.getElementById("activationCode").value = "function activation(sum, temperature) { return sum / temperature > 0 ? 0.9 : 0.1; }";
+    frame.contentDocument.getElementById("applyCode").click();
+    const customResult = inference.runInference();
+    check("custom activation uses Gibbs inference", customResult.distribution.method.includes("custom activation") && Math.abs(customResult.probabilitySum - 1) < 1e-10);
+    frame.contentDocument.getElementById("resetCode").click();
     check("energy finite", Number.isFinite(api.energy()));
     check("canvases and inference UI rendered", frame.contentDocument.getElementById("network").width > 300 && frame.contentDocument.querySelectorAll("#distribution .distribution-row").length > 0);
     check("custom compiler", api.compileFunction("function activation(x,t){return x+t;}", "activation")(2,3) === 5);

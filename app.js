@@ -7,7 +7,7 @@
   return weight + learningRate * (positive - negative);
 }`;
   const $ = (id) => document.getElementById(id);
-  const state = { visible: 6, hidden: 4, weights: [], biases: [], units: [], patterns: [], epoch: 0, timer: null, seed: 20260630, phase: "idle", error: 0, activation: null, update: null };
+  const state = { visible: 6, hidden: 4, weights: [], biases: [], units: [], patterns: [], epoch: 0, timer: null, seed: 20260630, phase: "idle", error: 0, activation: null, update: null, standardActivation: true };
 
   function seededRandom() { state.seed = (1664525 * state.seed + 1013904223) >>> 0; return state.seed / 4294967296; }
   function probability(sum) { return Math.max(0, Math.min(1, Number(state.activation(sum, Number($("temperature").value))) || 0)); }
@@ -24,7 +24,7 @@
       const update = compileFunction($("updateCode").value, "update");
       const probe = activation(0, 1); const updateProbe = update(0, 1, 0, .1);
       if (!Number.isFinite(probe) || !Number.isFinite(updateProbe)) throw new Error("Functions must return finite numbers");
-      state.activation = activation; state.update = update;
+      state.activation = activation; state.update = update; state.standardActivation = $("activationCode").value.trim() === ACTIVATION_SOURCE.trim();
       if (showStatus) { $("codeStatus").textContent = "Custom functions active."; setStatus("Learning functions applied."); }
       return true;
     } catch (error) { $("codeStatus").textContent = "Code error: " + error.message; setStatus(error.message, true); return false; }

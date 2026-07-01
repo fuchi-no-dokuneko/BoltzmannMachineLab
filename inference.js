@@ -5,7 +5,6 @@
   const inference = { input: [], distribution: [], result: null, randomState: 91573 };
 
   function random() { inference.randomState = (1664525 * inference.randomState + 1013904223) >>> 0; return inference.randomState / 4294967296; }
-  function sigmoid(value) { if (value >= 0) return 1 / (1 + Math.exp(-value)); const exponential = Math.exp(value); return exponential / (1 + exponential); }
   function softplus(value) { return value > 30 ? value : value < -30 ? Math.exp(value) : Math.log1p(Math.exp(value)); }
   function temperature() { return Math.max(0.1, Number($("temperature").value) || 1); }
   function stateLabel(bits) { return bits.join(""); }
@@ -50,7 +49,7 @@
   function gibbsUnit(units, unit) {
     const state = lab.state, size = units.length; let sum = state.biases[unit];
     for (let other = 0; other < size; other += 1) if (other !== unit) sum += units[other] * state.weights[lab.index(unit, other, size)];
-    units[unit] = random() < sigmoid(sum / temperature()) ? 1 : 0;
+    units[unit] = random() < lab.probability(sum) ? 1 : 0;
   }
   function sweep(units, start = 0) { for (let unit = start; unit < units.length; unit += 1) gibbsUnit(units, unit); }
   function sampledDistribution(burnIn, sampleCount) {
@@ -58,23 +57,24 @@
     for (let step = 0; step < burnIn; step += 1) sweep(units);
     for (let sample = 0; sample < sampleCount; sample += 1) { sweep(units); const bits = Array.from(units.slice(0, state.visible)), label = stateLabel(bits), record = counts.get(label) || { bits, count: 0 }; record.count += 1; counts.set(label, record); }
     const rows = [...counts.values()].map((row) => ({ bits: row.bits, label: stateLabel(row.bits), probability: row.count / sampleCount })).sort((a, b) => b.probability - a.probability);
-    return { rows, method: "Gibbs estimate for full BM", representedStates: counts.size };
+    const activationLabel = lab.state.standardActivation ? "" : " with custom activation";
+    return { rows, method: "Gibbs estimate" + activationLabel, representedStates: counts.size };
   }
 
   function rbmConditional(input) {
-    const state = lab.state, size = state.visible + state.hidden, divisor = temperature();
-    const hidden = Array.from({ length: state.hidden }, (_, h) => { let sum = state.biases[state.visible + h]; for (let v = 0; v < state.visible; v += 1) sum += input[v] * state.weights[lab.index(v, state.visible + h, size)]; return sigmoid(sum / divisor); });
-    const reconstructed = Array.from({ length: state.visible }, (_, v) => { let sum = state.biases[v]; for (let h = 0; h < state.hidden; h += 1) sum += hidden[h] * state.weights[lab.index(v, state.visible + h, size)]; return sigmoid(sum / divisor); });
+    const state = lab.state, size = state.visible + state.hidden;
+    const hidden = Array.from({ length: state.hidden }, (_, h) => { let sum = state.biases[state.visible + h]; for (let v = 0; v < state.visible; v += 1) sum += input[v] * state.weights[lab.index(v, state.visible + h, size)]; return lab.probability(sum); });
+    const reconstructed = Array.from({ length: state.visible }, (_, v) => { let sum = state.biases[v]; for (let h = 0; h < state.hidden; h += 1) sum += hidden[h] * state.weights[lab.index(v, state.visible + h, size)]; return lab.probability(sum); });
     return { hidden, reconstructed };
   }
   function fullConditional(input, burnIn, sampleCount) {
     const state = lab.state, size = state.visible + state.hidden, units = new Uint8Array(size); units.set(input); for (let h = state.visible; h < size; h += 1) units[h] = random() < .5 ? 1 : 0;
-    const hidden = new Float64Array(state.hidden), reconstructed = new Float64Array(state.visible), divisor = temperature();
+    const hidden = new Float64Array(state.hidden), reconstructed = new Float64Array(state.visible);
     for (let step = 0; step < burnIn; step += 1) sweep(units, state.visible);
     for (let sample = 0; sample < sampleCount; sample += 1) {
       sweep(units, state.visible);
       for (let h = 0; h < state.hidden; h += 1) hidden[h] += units[state.visible + h];
-      for (let v = 0; v < state.visible; v += 1) { let sum = state.biases[v]; for (let other = 0; other < size; other += 1) if (other !== v) sum += units[other] * state.weights[lab.index(v, other, size)]; reconstructed[v] += sigmoid(sum / divisor); }
+      for (let v = 0; v < state.visible; v += 1) { let sum = state.biases[v]; for (let other = 0; other < size; other += 1) if (other !== v) sum += units[other] * state.weights[lab.index(v, other, size)]; reconstructed[v] += lab.probability(sum); }
     }
     return { hidden: Array.from(hidden, (value) => value / sampleCount), reconstructed: Array.from(reconstructed, (value) => value / sampleCount) };
   }
@@ -98,7 +98,7 @@
     const burnIn = Math.max(0, Math.min(5000, Number($("inferenceBurnIn").value) || 0));
     const sampleCount = Math.max(100, Math.min(20000, Number($("inferenceSamples").value) || 2000));
     const conditional = $("model").value === "rbm" ? rbmConditional(inference.input) : fullConditional(inference.input, burnIn, sampleCount);
-    const distribution = $("model").value === "rbm" ? rbmDistribution() : (lab.state.visible + lab.state.hidden <= 16 ? fullExactDistribution() : sampledDistribution(burnIn, sampleCount));
+    const distribution = $("model").value === "rbm" && lab.state.standardActivation ? rbmDistribution() : (lab.state.standardActivation && lab.state.visible + lab.state.hidden <= 16 ? fullExactDistribution() : sampledDistribution(burnIn, sampleCount));
     const probabilitySum = distribution.rows.reduce((sum, row) => sum + row.probability, 0);
     const entropy = -distribution.rows.reduce((sum, row) => sum + (row.probability > 0 ? row.probability * Math.log(row.probability) : 0), 0);
     inference.distribution = distribution.rows; inference.result = { conditional, distribution, probabilitySum, entropy };
