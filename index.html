@@ -7,6 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <title>Boltzmann Machine Lab</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="inference.css">
 </head>
 <body>
   <header><div><span class="mark">BM</span><strong>Boltzmann Machine Lab</strong></div><span class="local">Offline simulation</span></header>
@@ -37,6 +38,31 @@
         <div id="patterns" class="patterns"></div>
       </aside>
     </section>
+    <section class="inference-section">
+      <div class="panel-title"><div><h2>Inference and learned distribution</h2><p>Inference pauses training and reads the current weights without updating them.</p></div><span id="inferenceMethod">weights frozen</span></div>
+      <div class="inference-layout">
+        <aside class="inference-controls">
+          <h3>Clamped visible input</h3>
+          <div id="inferenceBits" class="inference-bits"></div>
+          <button id="loadPattern" type="button">Load first enabled pattern</button>
+          <div class="inference-number-grid">
+            <label>Burn-in sweeps<input id="inferenceBurnIn" type="number" min="0" max="5000" value="200"></label>
+            <label>Gibbs samples<input id="inferenceSamples" type="number" min="100" max="20000" value="2000"></label>
+          </div>
+          <div class="inference-actions"><button class="primary" id="runInference" type="button">Run inference</button><button id="drawInferenceSample" type="button" disabled>Draw sample</button></div>
+          <div class="status" id="inferenceStatus">Train the model or inspect its initial distribution.</div>
+          <div class="sample-output"><span>Sampled visible state</span><strong id="sampledState">-</strong></div>
+        </aside>
+        <div class="inference-results">
+          <div class="inference-metrics"><span>States evaluated / observed<strong id="distributionStates">0</strong></span><span>Entropy (nats)<strong id="distributionEntropy">0.000</strong></span><span>Probability sum<strong id="probabilitySum">0.000000</strong></span></div>
+          <div class="probability-columns">
+            <section><h3>Hidden posterior P(H | input)</h3><div id="hiddenPosterior" class="probability-list"><p>No inference result.</p></div></section>
+            <section><h3>Visible reconstruction</h3><div id="visibleReconstruction" class="probability-list"><p>No inference result.</p></div></section>
+          </div>
+          <section class="distribution-panel"><div class="distribution-head"><h3>Most likely visible states</h3><span>normalized probability</span></div><div id="distribution" class="distribution-list"><p>No learned distribution yet.</p></div></section>
+        </div>
+      </div>
+    </section>
     <section class="code-section">
       <div class="panel-title"><div><h2>Learning functions</h2><p>These functions execute in this tab. Invalid code is rejected without replacing the active functions.</p></div><div><button id="applyCode" type="button" class="primary">Apply code</button><button id="resetCode" type="button">Restore original</button></div></div>
       <div class="code-grid">
@@ -53,5 +79,6 @@
   </main>
   <footer>All training and custom code execution remain in this browser tab.</footer>
   <script src="app.js"></script>
+  <script src="inference.js"></script>
 </body>
 </html>

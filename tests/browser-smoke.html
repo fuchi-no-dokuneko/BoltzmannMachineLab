@@ -1,1 +1,46 @@
-<!doctype html><html><head><meta charset="utf-8"><title>RUNNING</title></head><body><iframe id="app" src="../index.html" hidden></iframe><pre id="result">RUNNING</pre><script>document.getElementById("app").addEventListener("load",()=>{const frame=document.getElementById("app"),win=frame.contentWindow,api=win.BoltzmannLab,checks=[];const check=(n,p)=>checks.push([n,!!p]);try{check("initialized",api.state.weights.length===100);const before=Array.from(api.state.weights);for(let i=0;i<5;i++)api.trainStep();check("RBM advances epochs",api.state.epoch===5);check("RBM updates weights",before.some((v,i)=>v!==api.state.weights[i]));frame.contentDocument.getElementById("model").value="bm";api.resetNetwork();const bmBefore=Array.from(api.state.weights);api.trainStep();check("full BM advances",api.state.epoch===1);check("full BM updates weights",bmBefore.some((v,i)=>v!==api.state.weights[i]));check("energy finite",Number.isFinite(api.energy()));check("canvas painted",frame.contentDocument.getElementById("network").width>300);check("custom compiler",api.compileFunction("function activation(x,t){return x+t;}","activation")(2,3)===5);const ok=checks.every(x=>x[1]);document.getElementById("result").textContent=(ok?"PASS":"FAIL")+"\n"+checks.map(x=>(x[1]?"PASS ":"FAIL ")+x[0]).join("\n");document.title=ok?"PASS":"FAIL"}catch(e){document.getElementById("result").textContent="FAIL\n"+e.stack;document.title="FAIL"}},{once:true});</script></body></html>
+<!doctype html>
+<html><head><meta charset="utf-8"><title>RUNNING</title></head><body>
+<iframe id="app" src="../index.html" hidden></iframe><pre id="result">RUNNING</pre>
+<script>
+document.getElementById("app").addEventListener("load", () => {
+  const frame = document.getElementById("app"), win = frame.contentWindow, api = win.BoltzmannLab, inference = win.BoltzmannInference, checks = [];
+  const check = (name, pass) => checks.push([name, Boolean(pass)]);
+  try {
+    check("initialized weights and biases", api.state.weights.length === 100 && api.state.biases.length === 10);
+    const beforeWeights = Array.from(api.state.weights), beforeBiases = Array.from(api.state.biases);
+    for (let step = 0; step < 5; step += 1) api.trainStep();
+    check("RBM advances epochs", api.state.epoch === 5);
+    check("RBM updates weights", beforeWeights.some((value, index) => value !== api.state.weights[index]));
+    check("RBM updates biases", beforeBiases.some((value, index) => value !== api.state.biases[index]));
+
+    const frozenWeights = Array.from(api.state.weights), frozenBiases = Array.from(api.state.biases);
+    const rbmResult = inference.runInference();
+    check("RBM exact visible distribution", rbmResult.distribution.rows.length === 64 && Math.abs(rbmResult.probabilitySum - 1) < 1e-10);
+    check("RBM inference preserves parameters", frozenWeights.every((value, index) => value === api.state.weights[index]) && frozenBiases.every((value, index) => value === api.state.biases[index]));
+    check("posterior and reconstruction exposed", rbmResult.conditional.hidden.length === 4 && rbmResult.conditional.reconstructed.length === 6);
+
+    frame.contentDocument.getElementById("model").value = "bm";
+    api.resetNetwork();
+    const bmBefore = Array.from(api.state.weights);
+    api.trainStep();
+    check("full BM advances", api.state.epoch === 1);
+    check("full BM updates weights", bmBefore.some((value, index) => value !== api.state.weights[index]));
+    const bmResult = inference.runInference();
+    check("full BM exact visible marginal", bmResult.distribution.representedStates === 1024 && Math.abs(bmResult.probabilitySum - 1) < 1e-10);
+    frame.contentDocument.getElementById("visibleCount").value = "12";
+    frame.contentDocument.getElementById("hiddenCount").value = "10";
+    frame.contentDocument.getElementById("inferenceBurnIn").value = "0";
+    frame.contentDocument.getElementById("inferenceSamples").value = "100";
+    api.resetNetwork();
+    inference.state.input = Array(12).fill(0);
+    const sampledResult = inference.runInference();
+    check("large full BM uses normalized Gibbs estimate", sampledResult.distribution.method.includes("Gibbs") && Math.abs(sampledResult.probabilitySum - 1) < 1e-10);
+    check("energy finite", Number.isFinite(api.energy()));
+    check("canvases and inference UI rendered", frame.contentDocument.getElementById("network").width > 300 && frame.contentDocument.querySelectorAll("#distribution .distribution-row").length > 0);
+    check("custom compiler", api.compileFunction("function activation(x,t){return x+t;}", "activation")(2,3) === 5);
+    const ok = checks.every((item) => item[1]);
+    document.getElementById("result").textContent = (ok ? "PASS" : "FAIL") + "\n" + checks.map((item) => (item[1] ? "PASS " : "FAIL ") + item[0]).join("\n");
+    document.title = ok ? "PASS" : "FAIL";
+  } catch (error) { document.getElementById("result").textContent = "FAIL\n" + error.stack; document.title = "FAIL"; }
+}, { once:true });
+</script></body></html>

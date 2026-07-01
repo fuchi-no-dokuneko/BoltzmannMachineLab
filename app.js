@@ -7,7 +7,7 @@
   return weight + learningRate * (positive - negative);
 }`;
   const $ = (id) => document.getElementById(id);
-  const state = { visible: 6, hidden: 4, weights: [], units: [], patterns: [], epoch: 0, timer: null, seed: 20260630, phase: "idle", error: 0, activation: null, update: null };
+  const state = { visible: 6, hidden: 4, weights: [], biases: [], units: [], patterns: [], epoch: 0, timer: null, seed: 20260630, phase: "idle", error: 0, activation: null, update: null };
 
   function seededRandom() { state.seed = (1664525 * state.seed + 1013904223) >>> 0; return state.seed / 4294967296; }
   function probability(sum) { return Math.max(0, Math.min(1, Number(state.activation(sum, Number($("temperature").value))) || 0)); }
@@ -38,7 +38,7 @@
   function resetNetwork() {
     stop(); state.visible = clampInt($("visibleCount").value, 3, 12); state.hidden = clampInt($("hiddenCount").value, 2, 10);
     $("visibleCount").value = state.visible; $("hiddenCount").value = state.hidden; state.seed = 20260630; state.epoch = 0; state.phase = "idle"; state.error = 0;
-    const size = state.visible + state.hidden; state.weights = new Float64Array(size * size); state.units = new Uint8Array(size);
+    const size = state.visible + state.hidden; state.weights = new Float64Array(size * size); state.biases = new Float64Array(size); state.units = new Uint8Array(size);
     for (let a = 0; a < size; a += 1) for (let b = a + 1; b < size; b += 1) {
       if ($("model").value === "rbm" && ((a < state.visible) === (b < state.visible))) continue;
       const weight = (seededRandom() - .5) * .28; state.weights[index(a, b, size)] = weight; state.weights[index(b, a, size)] = weight;
@@ -50,13 +50,13 @@
   function hiddenProbabilities(visible) {
     const size = state.visible + state.hidden;
     return Array.from({ length: state.hidden }, (_, h) => {
-      let sum = 0; for (let v = 0; v < state.visible; v += 1) sum += visible[v] * state.weights[index(v, state.visible + h, size)]; return probability(sum);
+      let sum = state.biases[state.visible + h]; for (let v = 0; v < state.visible; v += 1) sum += visible[v] * state.weights[index(v, state.visible + h, size)]; return probability(sum);
     });
   }
   function visibleProbabilities(hidden) {
     const size = state.visible + state.hidden;
     return Array.from({ length: state.visible }, (_, v) => {
-      let sum = 0; for (let h = 0; h < state.hidden; h += 1) sum += hidden[h] * state.weights[index(v, state.visible + h, size)]; return probability(sum);
+      let sum = state.biases[v]; for (let h = 0; h < state.hidden; h += 1) sum += hidden[h] * state.weights[index(v, state.visible + h, size)]; return probability(sum);
     });
   }
   function rbmStep(pattern) {
@@ -67,10 +67,12 @@
       const a = v; const b = state.visible + h; const old = state.weights[index(a, b, size)]; const next = Number(state.update(old, v0[v] * h0p[h], vk[v] * hkp[h], lr));
       if (Number.isFinite(next)) state.weights[index(a, b, size)] = state.weights[index(b, a, size)] = Math.max(-8, Math.min(8, next));
     }
+    for (let v = 0; v < state.visible; v += 1) { const next = Number(state.update(state.biases[v], v0[v], vk[v], lr)); if (Number.isFinite(next)) state.biases[v] = Math.max(-8, Math.min(8, next)); }
+    for (let h = 0; h < state.hidden; h += 1) { const unit = state.visible + h; const next = Number(state.update(state.biases[unit], h0p[h], hkp[h], lr)); if (Number.isFinite(next)) state.biases[unit] = Math.max(-8, Math.min(8, next)); }
     state.units.set([...vk, ...hidden]); state.error = v0.reduce((sum, bit, i) => sum + (bit - vkp[i]) ** 2, 0) / state.visible; state.phase = "CD reconstruction";
   }
   function gibbsUnit(units, unit) {
-    const size = units.length; let sum = 0; for (let other = 0; other < size; other += 1) if (other !== unit) sum += units[other] * state.weights[index(unit, other, size)]; units[unit] = sample(probability(sum));
+    const size = units.length; let sum = state.biases[unit]; for (let other = 0; other < size; other += 1) if (other !== unit) sum += units[other] * state.weights[index(unit, other, size)]; units[unit] = sample(probability(sum));
   }
   function bmStep(pattern) {
     const size = state.visible + state.hidden; const positiveUnits = new Uint8Array(size); positiveUnits.set(pattern.bits); for (let i = state.visible; i < size; i += 1) positiveUnits[i] = sample(.5);
@@ -83,6 +85,7 @@
       const old = state.weights[index(a, b, size)]; const next = Number(state.update(old, positiveUnits[a] * positiveUnits[b], negativeUnits[a] * negativeUnits[b], lr));
       if (Number.isFinite(next)) state.weights[index(a, b, size)] = state.weights[index(b, a, size)] = Math.max(-8, Math.min(8, next));
     }
+    for (let unit = 0; unit < size; unit += 1) { const next = Number(state.update(state.biases[unit], positiveUnits[unit], negativeUnits[unit], lr)); if (Number.isFinite(next)) state.biases[unit] = Math.max(-8, Math.min(8, next)); }
     state.units = negativeUnits; state.error = pattern.bits.reduce((sum, bit, i) => sum + (bit - negativeUnits[i]) ** 2, 0) / state.visible; state.phase = "free negative phase";
   }
   function trainStep() {
@@ -92,7 +95,7 @@
   }
   function start() { if (state.timer) return; const period = Math.round(1000 / Number($("speed").value)); state.timer = setInterval(trainStep, period); $("start").disabled = true; $("pause").disabled = false; setStatus("Training in progress."); }
   function stop() { if (state.timer) clearInterval(state.timer); state.timer = null; $("start").disabled = false; $("pause").disabled = true; }
-  function energy() { const size = state.units.length; let value = 0; for (let a = 0; a < size; a += 1) for (let b = a + 1; b < size; b += 1) value -= state.weights[index(a, b, size)] * state.units[a] * state.units[b]; return value; }
+  function energy(units = state.units) { const size = units.length; let value = 0; for (let unit = 0; unit < size; unit += 1) value -= state.biases[unit] * units[unit]; for (let a = 0; a < size; a += 1) for (let b = a + 1; b < size; b += 1) value -= state.weights[index(a, b, size)] * units[a] * units[b]; return value; }
   function updateMetrics() { $("epoch").textContent = state.epoch; $("error").textContent = state.error.toFixed(4); $("energy").textContent = energy().toFixed(4); const active = [...state.weights].filter((value) => value !== 0); $("weightRms").textContent = Math.sqrt(active.reduce((sum, value) => sum + value * value, 0) / Math.max(1, active.length)).toFixed(4); $("phase").textContent = state.phase; }
   function setStatus(message, error = false) { $("status").textContent = message; $("status").className = "status" + (error ? " error" : ""); }
 
@@ -111,5 +114,5 @@
   $("start").addEventListener("click", start); $("pause").addEventListener("click", stop); $("step").addEventListener("click", trainStep); $("reset").addEventListener("click", resetNetwork); $("applyCode").addEventListener("click", () => applyCode(true)); $("resetCode").addEventListener("click", restoreCode);
   $("model").addEventListener("change", resetNetwork); $("visibleCount").addEventListener("change", resetNetwork); $("hiddenCount").addEventListener("change", resetNetwork); $("speed").addEventListener("input", () => { $("speedValue").value = $("speed").value; if (state.timer) { stop(); start(); } });
   $("randomPattern").addEventListener("click", () => { state.patterns.forEach((pattern) => pattern.bits = pattern.bits.map(() => seededRandom() > .5 ? 1 : 0)); renderPatterns(); }); window.addEventListener("resize", draw);
-  window.BoltzmannLab = { state, compileFunction, trainStep, resetNetwork, energy };
+  window.BoltzmannLab = { state, compileFunction, trainStep, resetNetwork, energy, probability, hiddenProbabilities, visibleProbabilities, index, stop };
 })();
