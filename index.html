@@ -39,7 +39,7 @@
       </aside>
     </section>
     <section class="inference-section">
-      <div class="panel-title"><div><h2>Inference and learned distribution</h2><p>Inference pauses training and reads the current weights without updating them.</p></div><span id="inferenceMethod">weights frozen</span></div>
+      <div class="panel-title"><div><h2>Inference and reconstruction</h2><p>Inference pauses training and ranks reconstructed visible states for the current clamped input without updating weights.</p></div><span id="inferenceMethod">weights frozen</span></div>
       <div class="inference-layout">
         <aside class="inference-controls">
           <h3>Clamped visible input</h3>
@@ -54,12 +54,12 @@
           <div class="sample-output"><span>Sampled visible state</span><strong id="sampledState">-</strong></div>
         </aside>
         <div class="inference-results">
-          <div class="inference-metrics"><span>States evaluated / observed<strong id="distributionStates">0</strong></span><span>Entropy (nats)<strong id="distributionEntropy">0.000</strong></span><span>Probability sum<strong id="probabilitySum">0.000000</strong></span></div>
+          <div class="inference-metrics"><span>States ranked<strong id="distributionStates">0</strong></span><span>Entropy (nats)<strong id="distributionEntropy">0.000</strong></span><span>Probability sum<strong id="probabilitySum">0.000000</strong></span></div>
           <div class="probability-columns">
             <section><h3>Hidden posterior P(H | input)</h3><div id="hiddenPosterior" class="probability-list"><p>No inference result.</p></div></section>
             <section><h3>Visible reconstruction</h3><div id="visibleReconstruction" class="probability-list"><p>No inference result.</p></div></section>
           </div>
-          <section class="distribution-panel"><div class="distribution-head"><h3>Most likely visible states</h3><span>normalized probability</span></div><div id="distribution" class="distribution-list"><p>No learned distribution yet.</p></div></section>
+          <section class="distribution-panel"><div class="distribution-head"><h3>Most likely reconstructed states</h3><span>input-conditioned probability</span></div><div id="distribution" class="distribution-list"><p>No reconstructed states yet.</p></div></section>
         </div>
       </div>
     </section>

@@ -2,7 +2,7 @@
 
 An offline browser laboratory for comparing a full Boltzmann machine's clamped/free Gibbs phases with an RBM trained using CD-k. The network view exposes stochastic unit states, learned biases, and signed weight magnitude. Activation and update functions are editable and execute only in the current tab.
 
-Training and inference are separate. Inference freezes the current parameters and shows hidden posterior probabilities, visible reconstruction probabilities, sampled states, entropy, and the normalized visible-state distribution. With the standard Boltzmann activation, RBM visible marginals are exact and full-BM marginals are exact for up to 16 total units. Larger models and custom activation functions use a clearly labeled Gibbs estimate.
+Training and inference are separate. Inference freezes the current parameters and shows hidden posterior probabilities, visible reconstruction probabilities, sampled reconstructed states, entropy, and an input-conditioned ranking of reconstructed visible states. Changing the clamped visible input changes that reconstructed-state ranking. Full-BM hidden posteriors use the configured Gibbs sampling controls; RBM conditionals are computed directly from the current weights.
 
 ## References
 

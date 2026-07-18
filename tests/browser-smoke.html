@@ -15,7 +15,7 @@ document.getElementById("app").addEventListener("load", () => {
 
     const frozenWeights = Array.from(api.state.weights), frozenBiases = Array.from(api.state.biases);
     const rbmResult = inference.runInference();
-    check("RBM exact visible distribution", rbmResult.distribution.rows.length === 64 && Math.abs(rbmResult.probabilitySum - 1) < 1e-10);
+    check("RBM reconstruction distribution", rbmResult.distribution.rows.length === 64 && rbmResult.distribution.method.includes("reconstruction") && Math.abs(rbmResult.probabilitySum - 1) < 1e-10);
     check("RBM inference preserves parameters", frozenWeights.every((value, index) => value === api.state.weights[index]) && frozenBiases.every((value, index) => value === api.state.biases[index]));
     check("posterior and reconstruction exposed", rbmResult.conditional.hidden.length === 4 && rbmResult.conditional.reconstructed.length === 6);
     frame.contentDocument.querySelector("#inferenceBits button").click();
@@ -23,6 +23,19 @@ document.getElementById("app").addEventListener("load", () => {
     inference.runInference();
     frame.contentDocument.getElementById("reset").click();
     check("network reset invalidates stale inference", inference.state.result === null && frame.contentDocument.getElementById("drawInferenceSample").disabled && !frame.contentDocument.getElementById("inferenceStatus").textContent.includes("Inference complete"));
+    api.resetNetwork();
+    api.state.weights.fill(0);
+    api.state.biases.fill(-2);
+    api.state.biases[0] = -4;
+    api.state.biases[api.state.visible] = -4;
+    const stateSize = api.state.visible + api.state.hidden, hidden0 = api.state.visible;
+    api.state.weights[api.index(0, hidden0, stateSize)] = 8;
+    api.state.weights[api.index(hidden0, 0, stateSize)] = 8;
+    inference.state.input = [1, 0, 0, 0, 0, 0];
+    const clampedOnTop = inference.runInference().distribution.rows[0].label;
+    inference.state.input = [0, 0, 0, 0, 0, 0];
+    const clampedOffTop = inference.runInference().distribution.rows[0].label;
+    check("clamped input changes most likely states", clampedOnTop !== clampedOffTop && clampedOnTop === "100000" && clampedOffTop === "000000");
 
     frame.contentDocument.getElementById("model").value = "bm";
     api.resetNetwork();
@@ -31,7 +44,7 @@ document.getElementById("app").addEventListener("load", () => {
     check("full BM advances", api.state.epoch === 1);
     check("full BM updates weights", bmBefore.some((value, index) => value !== api.state.weights[index]));
     const bmResult = inference.runInference();
-    check("full BM exact visible marginal", bmResult.distribution.representedStates === 1024 && Math.abs(bmResult.probabilitySum - 1) < 1e-10);
+    check("full BM reconstruction ranking", bmResult.distribution.representedStates === 64 && bmResult.distribution.method.includes("full-BM") && Math.abs(bmResult.probabilitySum - 1) < 1e-10);
     frame.contentDocument.getElementById("visibleCount").value = "12";
     frame.contentDocument.getElementById("hiddenCount").value = "10";
     frame.contentDocument.getElementById("inferenceBurnIn").value = "0";
@@ -39,7 +52,7 @@ document.getElementById("app").addEventListener("load", () => {
     api.resetNetwork();
     inference.state.input = Array(12).fill(0);
     const sampledResult = inference.runInference();
-    check("large full BM uses normalized Gibbs estimate", sampledResult.distribution.method.includes("Gibbs") && Math.abs(sampledResult.probabilitySum - 1) < 1e-10);
+    check("large full BM uses normalized reconstruction ranking", sampledResult.distribution.method.includes("full-BM") && Math.abs(sampledResult.probabilitySum - 1) < 1e-10);
     frame.contentDocument.getElementById("model").value = "rbm";
     frame.contentDocument.getElementById("visibleCount").value = "6";
     frame.contentDocument.getElementById("hiddenCount").value = "4";
@@ -48,7 +61,7 @@ document.getElementById("app").addEventListener("load", () => {
     frame.contentDocument.getElementById("activationCode").value = "function activation(sum, temperature) { return sum / temperature > 0 ? 0.9 : 0.1; }";
     frame.contentDocument.getElementById("applyCode").click();
     const customResult = inference.runInference();
-    check("custom activation uses Gibbs inference", customResult.distribution.method.includes("custom activation") && Math.abs(customResult.probabilitySum - 1) < 1e-10);
+    check("custom activation uses reconstruction ranking", customResult.distribution.method.includes("custom activation") && Math.abs(customResult.probabilitySum - 1) < 1e-10);
     check("canvases and inference UI rendered", frame.contentDocument.getElementById("network").width > 300 && frame.contentDocument.querySelectorAll("#distribution .distribution-row").length > 0);
     frame.contentDocument.getElementById("resetCode").click();
     check("energy finite", Number.isFinite(api.energy()));

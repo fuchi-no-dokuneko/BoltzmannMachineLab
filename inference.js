@@ -60,6 +60,18 @@
     const activationLabel = lab.state.standardActivation ? "" : " with custom activation";
     return { rows, method: "Gibbs estimate" + activationLabel, representedStates: counts.size };
   }
+  function reconstructionDistribution(conditional) {
+    const probabilities = conditional.reconstructed.map((value) => Math.max(0, Math.min(1, Number(value) || 0)));
+    const rows = [];
+    for (let mask = 0; mask < 2 ** probabilities.length; mask += 1) {
+      const bits = bitsFromMask(mask, probabilities.length);
+      const probability = bits.reduce((product, bit, index) => product * (bit ? probabilities[index] : 1 - probabilities[index]), 1);
+      rows.push({ bits, label: stateLabel(bits), probability });
+    }
+    const modelLabel = $("model").value === "rbm" ? "RBM" : "full-BM Gibbs";
+    const activationLabel = lab.state.standardActivation ? "" : " with custom activation";
+    return { rows: rows.sort((a, b) => b.probability - a.probability), method: "Input-conditioned " + modelLabel + " reconstruction" + activationLabel, representedStates: rows.length };
+  }
 
   function rbmConditional(input) {
     const state = lab.state, size = state.visible + state.hidden;
@@ -92,14 +104,14 @@
     const container = $("distribution"); container.replaceChildren();
     rows.slice(0, 12).forEach((row) => { const item = document.createElement("div"); item.className = "distribution-row"; const label = document.createElement("code"); label.textContent = row.label; const track = document.createElement("div"); track.className = "distribution-track"; const fill = document.createElement("i"); fill.style.width = Math.max(.5, row.probability * 100).toFixed(3) + "%"; track.appendChild(fill); const output = document.createElement("output"); output.textContent = (row.probability * 100).toFixed(3) + "%"; item.append(label, track, output); container.appendChild(item); });
   }
-  function clearResults() { $("hiddenPosterior").innerHTML = "<p>No inference result.</p>"; $("visibleReconstruction").innerHTML = "<p>No inference result.</p>"; $("distribution").innerHTML = "<p>No learned distribution yet.</p>"; $("distributionStates").textContent = "0"; $("distributionEntropy").textContent = "0.000"; $("probabilitySum").textContent = "0.000000"; $("sampledState").textContent = "-"; $("drawInferenceSample").disabled = true; $("inferenceMethod").textContent = "weights frozen"; }
+  function clearResults() { $("hiddenPosterior").innerHTML = "<p>No inference result.</p>"; $("visibleReconstruction").innerHTML = "<p>No inference result.</p>"; $("distribution").innerHTML = "<p>No reconstructed states yet.</p>"; $("distributionStates").textContent = "0"; $("distributionEntropy").textContent = "0.000"; $("probabilitySum").textContent = "0.000000"; $("sampledState").textContent = "-"; $("drawInferenceSample").disabled = true; $("inferenceMethod").textContent = "weights frozen"; }
   function invalidateResults(message = "Inputs or parameters changed. Run inference again.") { inference.distribution = []; inference.result = null; clearResults(); $("inferenceStatus").textContent = message; }
   function runInference() {
     lab.stop(); inference.randomState = 91573;
     const burnIn = Math.max(0, Math.min(5000, Number($("inferenceBurnIn").value) || 0));
     const sampleCount = Math.max(100, Math.min(20000, Number($("inferenceSamples").value) || 2000));
     const conditional = $("model").value === "rbm" ? rbmConditional(inference.input) : fullConditional(inference.input, burnIn, sampleCount);
-    const distribution = $("model").value === "rbm" && lab.state.standardActivation ? rbmDistribution() : (lab.state.standardActivation && lab.state.visible + lab.state.hidden <= 16 ? fullExactDistribution() : sampledDistribution(burnIn, sampleCount));
+    const distribution = reconstructionDistribution(conditional);
     const probabilitySum = distribution.rows.reduce((sum, row) => sum + row.probability, 0);
     const entropy = -distribution.rows.reduce((sum, row) => sum + (row.probability > 0 ? row.probability * Math.log(row.probability) : 0), 0);
     inference.distribution = distribution.rows; inference.result = { conditional, distribution, probabilitySum, entropy };
@@ -123,5 +135,5 @@
     else if (reason === "code") invalidateResults("Learning functions changed. Run inference again.");
   });
   resetInput();
-  window.BoltzmannInference = { state: inference, runInference, rbmDistribution, fullExactDistribution, sampledDistribution, rbmConditional, fullConditional, invalidateResults };
+  window.BoltzmannInference = { state: inference, runInference, rbmDistribution, fullExactDistribution, sampledDistribution, reconstructionDistribution, rbmConditional, fullConditional, invalidateResults };
 })();
