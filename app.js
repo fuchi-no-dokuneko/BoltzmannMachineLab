@@ -26,6 +26,7 @@
       if (!Number.isFinite(probe) || !Number.isFinite(updateProbe)) throw new Error("Functions must return finite numbers");
       state.activation = activation; state.update = update; state.standardActivation = $("activationCode").value.trim() === ACTIVATION_SOURCE.trim();
       if (showStatus) { $("codeStatus").textContent = "Custom functions active."; setStatus("Learning functions applied."); }
+      notifyChange("code");
       return true;
     } catch (error) { $("codeStatus").textContent = "Code error: " + error.message; setStatus(error.message, true); return false; }
   }
@@ -43,7 +44,7 @@
       if ($("model").value === "rbm" && ((a < state.visible) === (b < state.visible))) continue;
       const weight = (seededRandom() - .5) * .28; state.weights[index(a, b, size)] = weight; state.weights[index(b, a, size)] = weight;
     }
-    state.patterns = makePatterns(state.visible); renderPatterns(); updateMetrics(); draw(); setStatus("Network reset with deterministic initial weights.");
+    state.patterns = makePatterns(state.visible); renderPatterns(); updateMetrics(); draw(); setStatus("Network reset with deterministic initial weights."); notifyChange("reset");
   }
   function clampInt(value, min, max) { return Math.max(min, Math.min(max, Math.round(Number(value) || min))); }
   function enabledPatterns() { return state.patterns.filter((pattern) => pattern.enabled); }
@@ -90,7 +91,7 @@
   }
   function trainStep() {
     const patterns = enabledPatterns(); if (!patterns.length) { setStatus("Enable at least one training pattern.", true); stop(); return; }
-    try { const pattern = patterns[state.epoch % patterns.length]; $("model").value === "rbm" ? rbmStep(pattern) : bmStep(pattern); state.epoch += 1; updateMetrics(); draw(); }
+    try { const pattern = patterns[state.epoch % patterns.length]; $("model").value === "rbm" ? rbmStep(pattern) : bmStep(pattern); state.epoch += 1; updateMetrics(); draw(); notifyChange("train"); }
     catch (error) { setStatus("Training stopped: " + error.message, true); stop(); }
   }
   function start() { if (state.timer) return; const period = Math.round(1000 / Number($("speed").value)); state.timer = setInterval(trainStep, period); $("start").disabled = true; $("pause").disabled = false; setStatus("Training in progress."); }
@@ -98,6 +99,7 @@
   function energy(units = state.units) { const size = units.length; let value = 0; for (let unit = 0; unit < size; unit += 1) value -= state.biases[unit] * units[unit]; for (let a = 0; a < size; a += 1) for (let b = a + 1; b < size; b += 1) value -= state.weights[index(a, b, size)] * units[a] * units[b]; return value; }
   function updateMetrics() { $("epoch").textContent = state.epoch; $("error").textContent = state.error.toFixed(4); $("energy").textContent = energy().toFixed(4); const active = [...state.weights].filter((value) => value !== 0); $("weightRms").textContent = Math.sqrt(active.reduce((sum, value) => sum + value * value, 0) / Math.max(1, active.length)).toFixed(4); $("phase").textContent = state.phase; }
   function setStatus(message, error = false) { $("status").textContent = message; $("status").className = "status" + (error ? " error" : ""); }
+  function notifyChange(reason) { window.dispatchEvent(new CustomEvent("boltzmannlab:changed", { detail: { reason } })); }
 
   function renderPatterns() {
     const container = $("patterns"); container.replaceChildren();

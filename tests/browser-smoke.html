@@ -18,6 +18,11 @@ document.getElementById("app").addEventListener("load", () => {
     check("RBM exact visible distribution", rbmResult.distribution.rows.length === 64 && Math.abs(rbmResult.probabilitySum - 1) < 1e-10);
     check("RBM inference preserves parameters", frozenWeights.every((value, index) => value === api.state.weights[index]) && frozenBiases.every((value, index) => value === api.state.biases[index]));
     check("posterior and reconstruction exposed", rbmResult.conditional.hidden.length === 4 && rbmResult.conditional.reconstructed.length === 6);
+    frame.contentDocument.querySelector("#inferenceBits button").click();
+    check("input edit invalidates stale inference", inference.state.result === null && frame.contentDocument.getElementById("drawInferenceSample").disabled && frame.contentDocument.getElementById("probabilitySum").textContent === "0.000000");
+    inference.runInference();
+    frame.contentDocument.getElementById("reset").click();
+    check("network reset invalidates stale inference", inference.state.result === null && frame.contentDocument.getElementById("drawInferenceSample").disabled && !frame.contentDocument.getElementById("inferenceStatus").textContent.includes("Inference complete"));
 
     frame.contentDocument.getElementById("model").value = "bm";
     api.resetNetwork();
@@ -44,9 +49,9 @@ document.getElementById("app").addEventListener("load", () => {
     frame.contentDocument.getElementById("applyCode").click();
     const customResult = inference.runInference();
     check("custom activation uses Gibbs inference", customResult.distribution.method.includes("custom activation") && Math.abs(customResult.probabilitySum - 1) < 1e-10);
+    check("canvases and inference UI rendered", frame.contentDocument.getElementById("network").width > 300 && frame.contentDocument.querySelectorAll("#distribution .distribution-row").length > 0);
     frame.contentDocument.getElementById("resetCode").click();
     check("energy finite", Number.isFinite(api.energy()));
-    check("canvases and inference UI rendered", frame.contentDocument.getElementById("network").width > 300 && frame.contentDocument.querySelectorAll("#distribution .distribution-row").length > 0);
     check("custom compiler", api.compileFunction("function activation(x,t){return x+t;}", "activation")(2,3) === 5);
     const ok = checks.every((item) => item[1]);
     document.getElementById("result").textContent = (ok ? "PASS" : "FAIL") + "\n" + checks.map((item) => (item[1] ? "PASS " : "FAIL ") + item[0]).join("\n");

@@ -81,9 +81,9 @@
 
   function renderBits() {
     const container = $("inferenceBits"); container.replaceChildren();
-    inference.input.forEach((bit, index) => { const button = document.createElement("button"); button.type = "button"; button.className = "inference-bit" + (bit ? " on" : ""); button.textContent = "V" + (index + 1) + "=" + bit; button.addEventListener("click", () => { inference.input[index] = 1 - inference.input[index]; renderBits(); }); container.appendChild(button); });
+    inference.input.forEach((bit, index) => { const button = document.createElement("button"); button.type = "button"; button.className = "inference-bit" + (bit ? " on" : ""); button.textContent = "V" + (index + 1) + "=" + bit; button.addEventListener("click", () => { inference.input[index] = 1 - inference.input[index]; renderBits(); invalidateResults("Inference input changed. Run inference again."); }); container.appendChild(button); });
   }
-  function resetInput() { const pattern = lab.state.patterns.find((item) => item.enabled); inference.input = pattern ? pattern.bits.slice() : Array(lab.state.visible).fill(0); inference.distribution = []; inference.result = null; renderBits(); clearResults(); }
+  function resetInput(message = "Train the model or inspect its initial distribution.") { const pattern = lab.state.patterns.find((item) => item.enabled); inference.input = pattern ? pattern.bits.slice() : Array(lab.state.visible).fill(0); inference.distribution = []; inference.result = null; renderBits(); clearResults(); $("inferenceStatus").textContent = message; }
   function renderProbabilities(id, values, prefix) {
     const container = $(id); container.replaceChildren();
     values.forEach((value, index) => { const row = document.createElement("div"); row.className = "probability-row"; const label = document.createElement("strong"); label.textContent = prefix + (index + 1); const track = document.createElement("div"); track.className = "probability-track"; const fill = document.createElement("i"); fill.style.width = (value * 100).toFixed(2) + "%"; track.appendChild(fill); const output = document.createElement("output"); output.textContent = value.toFixed(3); row.append(label, track, output); container.appendChild(row); });
@@ -93,6 +93,7 @@
     rows.slice(0, 12).forEach((row) => { const item = document.createElement("div"); item.className = "distribution-row"; const label = document.createElement("code"); label.textContent = row.label; const track = document.createElement("div"); track.className = "distribution-track"; const fill = document.createElement("i"); fill.style.width = Math.max(.5, row.probability * 100).toFixed(3) + "%"; track.appendChild(fill); const output = document.createElement("output"); output.textContent = (row.probability * 100).toFixed(3) + "%"; item.append(label, track, output); container.appendChild(item); });
   }
   function clearResults() { $("hiddenPosterior").innerHTML = "<p>No inference result.</p>"; $("visibleReconstruction").innerHTML = "<p>No inference result.</p>"; $("distribution").innerHTML = "<p>No learned distribution yet.</p>"; $("distributionStates").textContent = "0"; $("distributionEntropy").textContent = "0.000"; $("probabilitySum").textContent = "0.000000"; $("sampledState").textContent = "-"; $("drawInferenceSample").disabled = true; $("inferenceMethod").textContent = "weights frozen"; }
+  function invalidateResults(message = "Inputs or parameters changed. Run inference again.") { inference.distribution = []; inference.result = null; clearResults(); $("inferenceStatus").textContent = message; }
   function runInference() {
     lab.stop(); inference.randomState = 91573;
     const burnIn = Math.max(0, Math.min(5000, Number($("inferenceBurnIn").value) || 0));
@@ -110,8 +111,17 @@
 
   $("runInference").addEventListener("click", runInference);
   $("drawInferenceSample").addEventListener("click", drawSample);
-  $("loadPattern").addEventListener("click", resetInput);
-  $("model").addEventListener("change", resetInput); $("visibleCount").addEventListener("change", resetInput); $("hiddenCount").addEventListener("change", resetInput);
+  $("loadPattern").addEventListener("click", () => resetInput());
+  $("model").addEventListener("change", () => resetInput()); $("visibleCount").addEventListener("change", () => resetInput()); $("hiddenCount").addEventListener("change", () => resetInput());
+  $("temperature").addEventListener("input", () => invalidateResults("Temperature changed. Run inference again."));
+  $("inferenceBurnIn").addEventListener("input", () => invalidateResults("Sampling settings changed. Run inference again."));
+  $("inferenceSamples").addEventListener("input", () => invalidateResults("Sampling settings changed. Run inference again."));
+  window.addEventListener("boltzmannlab:changed", (event) => {
+    const reason = event.detail && event.detail.reason;
+    if (reason === "reset") resetInput();
+    else if (reason === "train") invalidateResults("Weights changed through training. Run inference again.");
+    else if (reason === "code") invalidateResults("Learning functions changed. Run inference again.");
+  });
   resetInput();
-  window.BoltzmannInference = { state: inference, runInference, rbmDistribution, fullExactDistribution, sampledDistribution, rbmConditional, fullConditional };
+  window.BoltzmannInference = { state: inference, runInference, rbmDistribution, fullExactDistribution, sampledDistribution, rbmConditional, fullConditional, invalidateResults };
 })();
