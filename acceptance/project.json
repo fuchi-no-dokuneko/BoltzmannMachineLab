@@ -1,0 +1,6 @@
+{
+  "repository": "BoltzmannMachineLab",
+  "platform": "web",
+  "baseUrl": "https://boltzmann-machine-lab.pages.dev/",
+  "timeoutSeconds": 60
+}
