@@ -20,6 +20,7 @@ const root = process.cwd();
 const reportDirectory = path.join(root, "build", "reports", "browser-uat");
 const testPath = process.argv[3] || "/tests/browser-smoke.html";
 const timeoutMs = Number(process.env.UAT_TIMEOUT_MS || 60_000);
+const minimumLineCoverage = Number(process.env.MIN_LINE_COVERAGE || 95);
 
 const mimeTypes = new Map([
   [".css", "text/css; charset=utf-8"],
@@ -451,6 +452,10 @@ async function main() {
     if (title !== "PASS" || checks.some((check) => !check.passed)) process.exitCode = 1;
     if (!coverage.totalLines) {
       process.stderr.write("No application coverage was collected\n");
+      process.exitCode = 1;
+    }
+    if (coverage.linePercent < minimumLineCoverage) {
+      process.stderr.write(`Line coverage ${coverage.linePercent.toFixed(1)}% is below the required ${minimumLineCoverage}%\n`);
       process.exitCode = 1;
     }
   } finally {

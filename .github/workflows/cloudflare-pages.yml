@@ -8,10 +8,10 @@ jobs:
     name: Unit, UAT, and coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"
       - name: Check JavaScript syntax
@@ -38,7 +38,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       - name: Upload test and coverage reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: browser-test-reports
           path: build/reports/browser-uat/
@@ -48,7 +48,7 @@ jobs:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - id: config
         env:
           TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -57,7 +57,7 @@ jobs:
         run: |
           if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ]; then echo configured=true >>"$GITHUB_OUTPUT"; echo "project=${PROJECT:-boltzmann-machine-lab}" >>"$GITHUB_OUTPUT"; else echo configured=false >>"$GITHUB_OUTPUT"; fi
       - if: steps.config.outputs.configured == 'true'
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

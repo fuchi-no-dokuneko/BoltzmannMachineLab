@@ -36,6 +36,22 @@ document.getElementById("app").addEventListener("load", () => {
     inference.state.input = [0, 0, 0, 0, 0, 0];
     const clampedOffTop = inference.runInference().distribution.rows[0].label;
     check("clamped input changes most likely states", clampedOnTop !== clampedOffTop && clampedOnTop === "100000" && clampedOffTop === "000000");
+    const exactRbm = inference.rbmDistribution();
+    check("exact RBM marginal is normalized", exactRbm.rows.length === 64 && Math.abs(exactRbm.rows.reduce((sum, row) => sum + row.probability, 0) - 1) < 1e-10);
+
+    const exportedState = JSON.stringify({
+      weights: Array.from(api.state.weights),
+      biases: Array.from(api.state.biases),
+      epoch: api.state.epoch
+    });
+    api.resetNetwork();
+    const importedState = JSON.parse(exportedState);
+    api.state.weights = Float64Array.from(importedState.weights);
+    api.state.biases = Float64Array.from(importedState.biases);
+    api.state.epoch = importedState.epoch;
+    inference.state.input = Array(api.state.visible).fill(0);
+    const importedResult = inference.runInference();
+    check("inference runs from imported parameters", importedResult.distribution.rows.length === 64 && Math.abs(importedResult.probabilitySum - 1) < 1e-10);
 
     frame.contentDocument.getElementById("model").value = "bm";
     api.resetNetwork();
@@ -45,6 +61,10 @@ document.getElementById("app").addEventListener("load", () => {
     check("full BM updates weights", bmBefore.some((value, index) => value !== api.state.weights[index]));
     const bmResult = inference.runInference();
     check("full BM reconstruction ranking", bmResult.distribution.representedStates === 64 && bmResult.distribution.method.includes("full-BM") && Math.abs(bmResult.probabilitySum - 1) < 1e-10);
+    const exactBm = inference.fullExactDistribution();
+    check("exact full BM marginal is normalized", exactBm.rows.length === 64 && Math.abs(exactBm.rows.reduce((sum, row) => sum + row.probability, 0) - 1) < 1e-10);
+    const sampledBm = inference.sampledDistribution(2, 100);
+    check("sampled full BM marginal is normalized", sampledBm.rows.length > 0 && Math.abs(sampledBm.rows.reduce((sum, row) => sum + row.probability, 0) - 1) < 1e-10);
     frame.contentDocument.getElementById("visibleCount").value = "12";
     frame.contentDocument.getElementById("hiddenCount").value = "10";
     frame.contentDocument.getElementById("inferenceBurnIn").value = "0";
@@ -62,8 +82,22 @@ document.getElementById("app").addEventListener("load", () => {
     frame.contentDocument.getElementById("applyCode").click();
     const customResult = inference.runInference();
     check("custom activation uses reconstruction ranking", customResult.distribution.method.includes("custom activation") && Math.abs(customResult.probabilitySum - 1) < 1e-10);
+    frame.contentDocument.getElementById("drawInferenceSample").click();
+    check("sample control draws a visible state", frame.contentDocument.getElementById("sampledState").textContent.length === 6);
     check("canvases and inference UI rendered", frame.contentDocument.getElementById("network").width > 300 && frame.contentDocument.querySelectorAll("#distribution .distribution-row").length > 0);
     frame.contentDocument.getElementById("resetCode").click();
+    frame.contentDocument.getElementById("activationCode").value = "function broken() { return 0.5; }";
+    frame.contentDocument.getElementById("applyCode").click();
+    check("invalid custom code is rejected", frame.contentDocument.getElementById("codeStatus").textContent.includes("Expected function activation"));
+    frame.contentDocument.getElementById("resetCode").click();
+    api.state.update = () => { throw new Error("deliberate test failure"); };
+    api.trainStep();
+    check("training failure stops cleanly", api.state.timer === null && frame.contentDocument.getElementById("status").textContent.includes("Training stopped"));
+    frame.contentDocument.getElementById("resetCode").click();
+    api.state.patterns.forEach((pattern) => { pattern.enabled = false; });
+    const epochBeforeInvalidInput = api.state.epoch;
+    api.trainStep();
+    check("empty training data is rejected", api.state.epoch === epochBeforeInvalidInput && frame.contentDocument.getElementById("status").textContent.includes("Enable at least one training pattern"));
     check("energy finite", Number.isFinite(api.energy()));
     check("custom compiler", api.compileFunction("function activation(x,t){return x+t;}", "activation")(2,3) === 5);
     const ok = checks.every((item) => item[1]);
